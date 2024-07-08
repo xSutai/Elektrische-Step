@@ -37,7 +37,7 @@ void setup() {
   lcd.setCursor(0, 1);
   lcd.print("Battery:");
 
-  if(analogRead(hallpin)>300){
+  if (analogRead(hallpin) > 300) {
     halldetect = true;
   }
 }
@@ -54,8 +54,7 @@ void loop() {
 void beep(long time, int amount) {
   //beeps to let the user know it's battery is almost dead.
   batcheck = !batcheck;
-  for (int i=0 ; i<amount ; i++)
-  {
+  for (int i = 0; i < amount; i++) {
     digitalWrite(beeperpin, HIGH);
     delay(time);
     digitalWrite(beeperpin, LOW);
@@ -68,56 +67,51 @@ void detect() {
   halldetect = !halldetect;
   time = micros();
 
-  timediv = (time - prevtime)*14;
+  timediv = (time - prevtime) * 14;
   prevtime = time;
 
-  rps = 1000000/timediv;
-
+  rps = 1000000 / timediv;
 }
 
 void readInputs() {
   //read all necessary inputs
-  potpinval = analogRead(potpin);       //reading value of the potentiometer for speed control of bldc motor
-  batpinval = analogRead(batterypin);   //reading value of the battery for charge estimation
-  hallpinval = analogRead(hallpin);     //reading value of the hall sensor in bldc motor for speed estimation
+  potpinval = analogRead(potpin);      //reading value of the potentiometer for speed control of bldc motor
+  batpinval = analogRead(batterypin);  //reading value of the battery for charge estimation
+  hallpinval = analogRead(hallpin);    //reading value of the hall sensor in bldc motor for speed estimation
 
-  batlevel = map(batpinval,0,1023, 100, 0);   //mapping the battery pin level to a 0% to 100% scale
+  batlevel = map(batpinval, 0, 1023, 100, 0);  //mapping the battery pin level to a 0% to 100% scale
 }
 
 void controlSpeed() {
   //only when a button is pressed and when running is true, may the user control the speed of the bldc motor. else it's always 0 speed
-    if (digitalRead(buttonpin) && running) {
-        servo.write(map(potpinval, 0, 1023, 0, 180));
-    } else {
-        servo.write(90);
-    }
+  if (digitalRead(buttonpin) && running) {
+    servo.write(map(potpinval, 0, 1023, 0, 180));
+  } else {
+    servo.write(90);
+  }
 }
 
 void manageBattery() {
   //a switch case for the battery level to let the user know he's battery is dying.
-	switch (batlevel)
-	{
+  switch (batlevel) {
     case 10:
-      if (!batcheck)
-      {
+      if (!batcheck) {
         beep(500, 3);
         running = false;
       }
       break;
     case 15:
-      if (batcheck)
-      {
+      if (batcheck) {
         beep(200, 2);
       }
       break;
     default:
-      if (batlevel > 20)
-      {
+      if (batlevel > 20) {
         batcheck = true;
         running = true;
       }
       break;
-	}
+  }
 }
 
 void checkHallSensor() {
@@ -129,16 +123,17 @@ void checkHallSensor() {
 
 void printLCD() {
   //show necessary info on the lcd screen for the user
-	lcd.setCursor(6, 0);
-	lcd.print("   ");
-	lcd.setCursor(6, 0);
-	lcd.print(map(potpinval, 0, 1023, 10, -10));
-	lcd.print("|       ");
-	lcd.setCursor(9, 0);
-	lcd.print((int)floor(rps));
+  lcd.setCursor(6, 0);
+  lcd.print("   ");
+  lcd.setCursor(6, 0);
+  lcd.print(map(potpinval, 0, 1023, 10, -10));
+  lcd.setCursor(9, 0);
+  lcd.print("|       ");
+  lcd.setCursor(10, 0);
+  lcd.print((int)floor(rps));
 
-	lcd.setCursor(8, 1);
-	lcd.print("   ");
-	lcd.setCursor(8, 1);
-	lcd.print(batlevel);
+  lcd.setCursor(8, 1);
+  lcd.print("   ");
+  lcd.setCursor(8, 1);
+  lcd.print(batlevel);
 }
