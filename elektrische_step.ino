@@ -3,31 +3,21 @@
 
 Servo servo;
 
-int const servopin = 2;
-int const potpin = 0;
-int const buttonpin = 3;
-int const batterypin = 1;
-int const beeperpin = 8;
-int const hallpin = 2;
-int potpinval;
-int batpinval;
-int hallpinval;
-int batlevel;
-bool batcheck = true;
-bool running = true;
-bool halldetect = false;
-long time = micros();
-long prevtime = micros();
-long timediv;
+const int rs = 12, en = 11, d4 = 7, d5 = 6, d6 = 5, d7 = 4, hallpin = 2, beeperpin = 8, batterypin = 1, buttonpin = 3, potpin = 0, escpin = 2;
+const double inputVoltage = 5.09;
+int potpinval, batpinval, hallpinval, batlevel = 100;
+bool batcheck = true, running = true, halldetect = false;
+long time = micros(), prevtime = micros(), timediv;
 double rps = 0;
 
-const int rs = 12, en = 11, d4 = 7, d5 = 6, d6 = 5, d7 = 4;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
+int voltageValues[100];
 
 void setup() {
   // the setup of the code
   Serial.begin(9600);
-  servo.attach(servopin);
+  servo.attach(escpin, 1000, 2000);
   servo.write(90);
 
   lcd.begin(16, 2);
@@ -44,11 +34,57 @@ void setup() {
 
 void loop() {
   //constant loop through this code
+  arrayshift();
   readInputs();
   controlSpeed();
   manageBattery();
   checkHallSensor();
   printLCD();
+}
+
+void arrayshift() {
+  for (int i = 0; i < (sizeof(voltageValues) / sizeof(int)); i += 1) {
+    int j = ((sizeof(voltageValues) / sizeof(int)) - 1) - i;
+    if (j == 0) {
+      voltageValues[j] = analogRead(batpinval);
+    } else {
+      voltageValues[j] = voltageValues[j - 1];
+    }
+  }
+}
+
+double calculateMean() {
+  long sum = 0;
+  for (int value : voltageValues) {
+    sum += value;
+  }
+  return (double)floor(sum / (sizeof(voltageValues) / sizeof(int)));
+}
+
+int calculateCharge(double num) {
+  double voltage = (num / 1024) * inputVoltage;
+  int charge;
+  bool check = true;
+
+  for (int num : voltageValues) {
+    if (num == 0) {
+      check = false;
+    }
+  }
+  if (check) {
+    if (voltage > 3.7) {  //6S battery pack is connected (24V)
+      charge = (int)floor((-175.48 * (voltage * voltage)) + (1776.7 * voltage) - 4397.8);
+    } else {  //3S battery pack is connected (11V)
+      charge = (int)floor((-702.38 * (voltage * voltage)) + (3555.8 * voltage) - 4400.9);
+    }
+
+    if (charge < batlevel) {
+      batlevel = charge;
+    }
+    return batlevel;
+  } else {
+    return 100;
+  }
 }
 
 void beep(long time, int amount) {
@@ -78,14 +114,12 @@ void readInputs() {
   potpinval = analogRead(potpin);      //reading value of the potentiometer for speed control of bldc motor
   batpinval = analogRead(batterypin);  //reading value of the battery for charge estimation
   hallpinval = analogRead(hallpin);    //reading value of the hall sensor in bldc motor for speed estimation
-
-  batlevel = map(batpinval, 0, 1023, 100, 0);  //mapping the battery pin level to a 0% to 100% scale
 }
 
 void controlSpeed() {
   //only when a button is pressed and when running is true, may the user control the speed of the bldc motor. else it's always 0 speed
   if (digitalRead(buttonpin) && running) {
-    servo.write(map(potpinval, 0, 1023, 0, 180));
+    servo.write(map(potpinval, 0, 1023, 180, 0));
   } else {
     servo.write(90);
   }
@@ -133,7 +167,8 @@ void printLCD() {
   lcd.print((int)floor(rps));
 
   lcd.setCursor(8, 1);
-  lcd.print("   ");
+  lcd.print("      ");
   lcd.setCursor(8, 1);
-  lcd.print(batlevel);
+  Serial.println(calculateCharge(calculateMean()));
+  lcd.print(calculateCharge(calculateMean()));
 }
