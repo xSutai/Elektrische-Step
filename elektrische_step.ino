@@ -3,20 +3,23 @@
 
 Servo servo;
 
-const int rs = 12, en = 11, d4 = 7, d5 = 6, d6 = 5, d7 = 4, hallpin = 2, beeperpin = 8, batterypin = 1, buttonpin = 3, potpin = 0, escpin = 2;
+const int rs = 12, en = 11, d4 = 7, d5 = 6, d6 = 5, d7 = 4, beeperpin = 8, batterypin = 0, buttonpin = 3, potpin = 7, escpin = 2;
+//hallpin = 9;
 const double inputVoltage = 5.09;
-int potpinval, batpinval, hallpinval, batlevel = 100;
-bool batcheck = true, running = true, halldetect = false;
-long time = micros(), prevtime = micros(), timediv;
-double rps = 0;
+int potpinval, batpinval, batlevel = 100;
+bool batcheck = true, running = true;
+//halldetect = false;
+//long time = micros(), prevtime = micros(), timediv;
+//double rps = 0;
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
-int voltageValues[100];
+int voltageValues[500];
+int batteryValues[300];
 
 void setup() {
   // the setup of the code
-  Serial.begin(9600);
+  //Serial.begin(9600);
   servo.attach(escpin, 1000, 2000);
   servo.write(90);
 
@@ -27,9 +30,9 @@ void setup() {
   lcd.setCursor(0, 1);
   lcd.print("Battery:");
 
-  if (analogRead(hallpin) > 300) {
-    halldetect = true;
-  }
+  // if (digitalRead(hallpin)) {
+  //   halldetect = true;
+  // }
 }
 
 void loop() {
@@ -38,7 +41,7 @@ void loop() {
   readInputs();
   controlSpeed();
   manageBattery();
-  checkHallSensor();
+  //checkHallSensor();
   printLCD();
 }
 
@@ -51,14 +54,23 @@ void arrayshift() {
       voltageValues[j] = voltageValues[j - 1];
     }
   }
+
+  for (int i = 0; i < (sizeof(batteryValues) / sizeof(int)); i += 1) {
+    int j = ((sizeof(batteryValues) / sizeof(int)) - 1) - i;
+    if (j == 0) {
+      batteryValues[j] = batlevel;
+    } else {
+      batteryValues[j] = batteryValues[j - 1];
+    }
+  }
 }
 
-double calculateMean() {
+double calculateMean(int array[], int size) {
   long sum = 0;
-  for (int value : voltageValues) {
-    sum += value;
+  for (int i=0; i<size; i++) {
+    sum += array[i];
   }
-  return (double)floor(sum / (sizeof(voltageValues) / sizeof(int)));
+  return (double)floor(sum / size);
 }
 
 int calculateCharge(double num) {
@@ -73,17 +85,17 @@ int calculateCharge(double num) {
   }
   if (check) {
     if (voltage > 3.7) {  //6S battery pack is connected (24V)
-      charge = (int)floor((-175.48 * (voltage * voltage)) + (1776.7 * voltage) - 4397.8);
+      charge = (int)floor((-169.57 * (voltage * voltage)) + (1746.5 * voltage) - 4397.8);
     } else {  //3S battery pack is connected (11V)
-      charge = (int)floor((-702.38 * (voltage * voltage)) + (3555.8 * voltage) - 4400.9);
+      charge = (int)floor((-678.73 * (voltage * voltage)) + (3495.4 * voltage) - 4400.9);
     }
 
-    if (charge < batlevel) {
+    if (charge > 0) {
       batlevel = charge;
     }
     return batlevel;
   } else {
-    return 100;
+    return batlevel;
   }
 }
 
@@ -98,22 +110,22 @@ void beep(long time, int amount) {
   }
 }
 
-void detect() {
-  //calculate the rps of the motor. (in the future it will calculate the speed in kph)
-  halldetect = !halldetect;
-  time = micros();
+// void detect() {
+//   //calculate the rps of the motor. (in the future it will calculate the speed in kph)
+//   halldetect = !halldetect;
+//   time = micros();
 
-  timediv = (time - prevtime) * 14;
-  prevtime = time;
+//   timediv = (time - prevtime) * 14;
+//   prevtime = time;
 
-  rps = 1000000 / timediv;
-}
+//   rps = 1000000 / timediv;
+// }
 
 void readInputs() {
   //read all necessary inputs
   potpinval = analogRead(potpin);      //reading value of the potentiometer for speed control of bldc motor
   batpinval = analogRead(batterypin);  //reading value of the battery for charge estimation
-  hallpinval = analogRead(hallpin);    //reading value of the hall sensor in bldc motor for speed estimation
+  //hallpinval = analogRead(hallpin);    //reading value of the hall sensor in bldc motor for speed estimation
 }
 
 void controlSpeed() {
@@ -148,12 +160,12 @@ void manageBattery() {
   }
 }
 
-void checkHallSensor() {
-  //when the hallsensor detects a difference in value, the speed of the motor will be estimated
-  if ((!halldetect && analogRead(hallpin) > 500) || (halldetect && analogRead(hallpin) < 100)) {
-    detect();
-  }
-}
+// void checkHallSensor() {
+//   //when the hallsensor detects a difference in value, the speed of the motor will be estimated
+//   if ((!halldetect && digitalRead(hallpin)) || (halldetect && (!digitalRead(hallpin)))) {
+//     detect();
+//   }
+// }
 
 void printLCD() {
   //show necessary info on the lcd screen for the user
@@ -161,14 +173,14 @@ void printLCD() {
   lcd.print("   ");
   lcd.setCursor(6, 0);
   lcd.print(map(potpinval, 0, 1023, 10, -10));
-  lcd.setCursor(9, 0);
-  lcd.print("|       ");
-  lcd.setCursor(10, 0);
-  lcd.print((int)floor(rps));
+  // lcd.setCursor(9, 0);
+  // lcd.print("|       ");
+  // lcd.setCursor(10, 0);
+  // lcd.print((int)floor(rps));
 
   lcd.setCursor(8, 1);
   lcd.print("      ");
   lcd.setCursor(8, 1);
-  Serial.println(calculateCharge(calculateMean()));
-  lcd.print(calculateCharge(calculateMean()));
+  calculateCharge(calculateMean(voltageValues, sizeof(voltageValues) / sizeof(int)));
+  lcd.print((int)floor(calculateMean(batteryValues, sizeof(batteryValues) / sizeof(int))));
 }
