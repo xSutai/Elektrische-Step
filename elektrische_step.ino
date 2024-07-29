@@ -3,9 +3,9 @@
 
 Servo servo;
 
-const int rs = 12, en = 11, d4 = 7, d5 = 6, d6 = 5, d7 = 4, beeperpin = 8, batterypin = 0, buttonpin = 3, potpin = 7, escpin = 2;
+const int rs = 12, en = 11, d4 = 7, d5 = 6, d6 = 5, d7 = 4, beeperpin = 8, batterypin = 0, buttonpin = 3, potpin = 6, escpin = 2;
 //hallpin = 9;
-const double inputVoltage = 5.09;
+const double inputVoltage = 5.05;
 int potpinval, batpinval, batlevel = 100;
 bool batcheck = true, running = true;
 //halldetect = false;
@@ -85,9 +85,9 @@ int calculateCharge(double num) {
   }
   if (check) {
     if (voltage > 3.7) {  //6S battery pack is connected (24V)
-      charge = (int)floor((-169.57 * (voltage * voltage)) + (1746.5 * voltage) - 4397.8);
+      charge = (int)floor((-172.2 * (voltage * voltage)) + (1760 * voltage) - 4397.8);
     } else {  //3S battery pack is connected (11V)
-      charge = (int)floor((-678.73 * (voltage * voltage)) + (3495.4 * voltage) - 4400.9);
+      charge = (int)floor((-689.24 * (voltage * voltage)) + (3522.4 * voltage) - 4400.9);
     }
 
     if (charge > 0) {
@@ -125,13 +125,14 @@ void readInputs() {
   //read all necessary inputs
   potpinval = analogRead(potpin);      //reading value of the potentiometer for speed control of bldc motor
   batpinval = analogRead(batterypin);  //reading value of the battery for charge estimation
+  //Serial.println(potpinval);
   //hallpinval = analogRead(hallpin);    //reading value of the hall sensor in bldc motor for speed estimation
 }
 
 void controlSpeed() {
   //only when a button is pressed and when running is true, may the user control the speed of the bldc motor. else it's always 0 speed
   if (digitalRead(buttonpin) && running) {
-    servo.write(map(potpinval, 0, 1023, 180, 0));
+    servo.write(map(potpinval, 5, 1000, 0, 180));
   } else {
     servo.write(90);
   }
@@ -172,7 +173,7 @@ void printLCD() {
   lcd.setCursor(6, 0);
   lcd.print("   ");
   lcd.setCursor(6, 0);
-  lcd.print(map(potpinval, 0, 1023, 10, -10));
+  lcd.print(map(potpinval, 5, 1000, -10, 10));
   // lcd.setCursor(9, 0);
   // lcd.print("|       ");
   // lcd.setCursor(10, 0);
