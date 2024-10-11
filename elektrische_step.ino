@@ -1,12 +1,14 @@
 #include <Servo.h>
 #include <LiquidCrystal.h>
+#include <time.h>
 
 Servo servo;
 
 const int rs = 12, en = 11, d4 = 7, d5 = 6, d6 = 5, d7 = 4, beeperpin = 8, batterypin = 0, buttonpin = 3, potpin = 6, escpin = 2;
 const double inputVoltage = 5.1;
-int potpinval, batpinval, batlevel = 100;
-bool batcheck = true, running = true;
+int potpinval, batpinval, batlevel = 100, beepercnt = 0, speed = 90;
+double startTime, beepLength = 0;
+bool batcheck = true;
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
@@ -16,6 +18,7 @@ int batteryValues[300];
 void setup()
 {
 	// the setup of the code
+
 	servo.attach(escpin, 1000, 2000);
 	servo.write(90);
 
@@ -36,6 +39,7 @@ void loop()
 	controlSpeed();
 	manageBattery();
 	printLCD();
+  //beep();
 }
 
 void shiftArray(int *array, int size, int newValue)
@@ -104,17 +108,21 @@ int formulaCharge(double voltage, double a, double b, double c)
 	return (int)floor((a * (voltage * voltage)) + (b * voltage) - c);
 }
 
-void beep(long time, int amount)
+void beep()
 {
 	// beeps to let the user know it's battery is almost dead.
-	batcheck = !batcheck;
-	for (int i = 0; i < amount; i++)
-	{
-		digitalWrite(beeperpin, HIGH);
-		delay(time);
-		digitalWrite(beeperpin, LOW);
-		delay(time);
-	}
+
+  if(beepercnt!=0)
+  {
+    beepercnt -= 1;
+    startTime = millis();
+    digitalWrite(beeperpin, HIGH);
+  }
+  if(startTime == millis()-beepLength)
+  {
+    digitalWrite(beeperpin, LOW);
+  }
+
 }
 
 void readInputs()
@@ -126,13 +134,14 @@ void readInputs()
 
 void controlSpeed()
 {
-	// only when a button is pressed and when running is true, may the user control the speed of the bldc motor. else it's always 0 speed
-	if (digitalRead(buttonpin) && running)
+	// only when a button is pressed, may the user control the speed of the bldc motor. else it's always 0 speed
+	if (digitalRead(buttonpin))
 	{
-		servo.write(map(potpinval, 10, 1000, 180, 0));
+		servo.write(speed);
 	}
 	else
 	{
+    speed = map(potpinval, 1000, 10, 180, 0);
 		servo.write(90);
 	}
 }
@@ -145,21 +154,23 @@ void manageBattery()
 	case 10:
 		if (!batcheck)
 		{
-			beep(500, 3);
-			running = false;
+      batcheck = !batcheck;
+      beepLength = 500;
+      beepercnt = 3;
 		}
 		break;
 	case 15:
 		if (batcheck)
 		{
-			beep(200, 2);
+      batcheck = !batcheck;
+      beepLength = 200;
+      beepercnt = 2;
 		}
 		break;
 	default:
 		if (batlevel > 20)
 		{
 			batcheck = true;
-			running = true;
 		}
 		break;
 	}
@@ -169,9 +180,10 @@ void printLCD()
 {
 	// show necessary info on the lcd screen for the user
 	lcd.setCursor(6, 0);
-	lcd.print("   ");
+	lcd.print("      ");
 	lcd.setCursor(6, 0);
-	lcd.print(map(potpinval, 10, 1000, -10, 10));
+	lcd.print(map(potpinval, 0, 1023, -100, 100));
+  lcd.print("%");
 
 	lcd.setCursor(8, 1);
 	lcd.print("      ");
@@ -182,4 +194,5 @@ void printLCD()
 		calculateCharge(mean);
 	}
 	lcd.print((int)floor(calculateMean(batteryValues, sizeof(batteryValues) / sizeof(int))));
+  lcd.print("%");
 }
